@@ -9,14 +9,14 @@ hero:
     - theme: brand
       text: 开始阅读 →
       link: /Linux/
-    - theme: alt
-      text: 关于本站
-      link: /运维工具/
 
 features:
   - title: Linux
     details: 系统管理、常用命令、性能调优、安全加固
     link: /Linux/
+  - title: Windows Server
+    details: Windows Server 系统管理、AD域控、IIS、Hyper-V
+    link: /WindowsServer/
   - title: MySQL
     details: 安装配置、SQL优化、备份恢复、主从复制
     link: /Mysql/
