@@ -152,10 +152,10 @@ export default defineConfig({
       }
     },
 
-    // ⭐ 修改点：大纲显示 h2、h3、h4（##、###、####）
+    // ⭐ 修改点：大纲显示 h2、h3、（##、###）
     outline: {
       label: '大纲',
-      level: [2, 4]
+      level: [2, 3]
     },
 
     docFooter: {
