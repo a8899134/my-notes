@@ -46,7 +46,7 @@ export default defineConfig({
     // ---- 自动生成 index.md 内容 ----
     const folders = ['Linux', 'WindowsServer', 'Mysql', 'PostgreSQL', 'Redis', 
                      'Nginx', 'Docker', 'K3S', 'K8S', 'Zabbix', 'Prometheus', 'Grafana', 
-                     'Ansible', 'Jenkins', '运维工具']
+                     'Ansible', 'Jenkins', '项目']
     
     for (const folder of folders) {
       if (pageData.relativePath === `${folder}/index.md`) {
@@ -55,15 +55,19 @@ export default defineConfig({
       }
     }
 
-    // ⭐ 移除了 Obsidian 语法转换，你自己在 Obsidian 里处理格式
     return pageData
   },
 
   themeConfig: {
     nav: [
       { text: '首页', link: '/' },
-      { text: 'Linux', link: '/Linux/' },
-      { text: 'Windows Server', link: '/WindowsServer/' },
+      {
+        text: '操作系统',
+        items: [
+          { text: 'Linux', link: '/Linux/' },
+          { text: 'Windows Server', link: '/WindowsServer/' }
+        ]
+      },
       {
         text: '数据库',
         items: [
@@ -101,7 +105,7 @@ export default defineConfig({
           { text: 'Jenkins', link: '/Jenkins/' }
         ]
       },
-      { text: '运维工具', link: '/运维工具/' }
+      { text: '项目', link: '/项目/' }
     ],
 
     sidebar: {
@@ -119,7 +123,7 @@ export default defineConfig({
       '/Grafana/': [{ text: 'Grafana', collapsed: false, items: getAutoItems('Grafana') }],
       '/Ansible/': [{ text: 'Ansible', collapsed: false, items: getAutoItems('Ansible') }],
       '/Jenkins/': [{ text: 'Jenkins', collapsed: false, items: getAutoItems('Jenkins') }],
-      '/运维工具/': [{ text: '运维工具', collapsed: false, items: getAutoItems('运维工具') }],
+      '/项目/': [{ text: '项目', collapsed: false, items: getAutoItems('项目') }],
     },
 
     search: {
@@ -152,7 +156,6 @@ export default defineConfig({
       }
     },
 
-    // ⭐ 修改点：大纲显示 h2、h3、（##、###）
     outline: {
       label: '大纲',
       level: [2, 3]
