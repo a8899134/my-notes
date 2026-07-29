@@ -44,9 +44,12 @@ export default defineConfig({
 
   async transformPageData(pageData) {
     // ---- 自动生成 index.md 内容 ----
-    const folders = ['Linux', 'WindowsServer', 'Mysql', 'PostgreSQL', 'Redis', 
-                     'Nginx', 'Docker', 'K3S', 'K8S', 'Zabbix', 'Prometheus', 'Grafana', 
-                     'Ansible', 'Jenkins', '项目']
+    const folders = [
+      'Linux', 'Nginx', 'Redis', 'Mysql', 'PostgreSQL',
+      'Docker', 'Ansible', 'K3S', 'K8S',
+      'Zabbix', 'Prometheus', 'Grafana', 'Jenkins',
+      'WindowsServer', '项目'
+    ]
     
     for (const folder of folders) {
       if (pageData.relativePath === `${folder}/index.md`) {
@@ -69,17 +72,17 @@ export default defineConfig({
         ]
       },
       {
-        text: '数据库',
-        items: [
-          { text: 'MySQL', link: '/Mysql/' },
-          { text: 'PostgreSQL', link: '/PostgreSQL/' }
-        ]
-      },
-      {
         text: '中间件',
         items: [
           { text: 'Nginx', link: '/Nginx/' },
           { text: 'Redis', link: '/Redis/' }
+        ]
+      },
+      {
+        text: '数据库',
+        items: [
+          { text: 'MySQL', link: '/Mysql/' },
+          { text: 'PostgreSQL', link: '/PostgreSQL/' }
         ]
       },
       {
@@ -110,19 +113,19 @@ export default defineConfig({
 
     sidebar: {
       '/Linux/': [{ text: 'Linux', collapsed: false, items: getAutoItems('Linux') }],
-      '/WindowsServer/': [{ text: 'Windows Server', collapsed: false, items: getAutoItems('WindowsServer') }],
+      '/Nginx/': [{ text: 'Nginx', collapsed: false, items: getAutoItems('Nginx') }],
+      '/Redis/': [{ text: 'Redis', collapsed: false, items: getAutoItems('Redis') }],
       '/Mysql/': [{ text: 'MySQL', collapsed: false, items: getAutoItems('Mysql') }],
       '/PostgreSQL/': [{ text: 'PostgreSQL', collapsed: false, items: getAutoItems('PostgreSQL') }],
-      '/Redis/': [{ text: 'Redis', collapsed: false, items: getAutoItems('Redis') }],
-      '/Nginx/': [{ text: 'Nginx', collapsed: false, items: getAutoItems('Nginx') }],
       '/Docker/': [{ text: 'Docker', collapsed: false, items: getAutoItems('Docker') }],
+      '/Ansible/': [{ text: 'Ansible', collapsed: false, items: getAutoItems('Ansible') }],
       '/K3S/': [{ text: 'K3s', collapsed: false, items: getAutoItems('K3S') }],
       '/K8S/': [{ text: 'Kubernetes', collapsed: false, items: getAutoItems('K8S') }],
       '/Zabbix/': [{ text: 'Zabbix', collapsed: false, items: getAutoItems('Zabbix') }],
       '/Prometheus/': [{ text: 'Prometheus', collapsed: false, items: getAutoItems('Prometheus') }],
       '/Grafana/': [{ text: 'Grafana', collapsed: false, items: getAutoItems('Grafana') }],
-      '/Ansible/': [{ text: 'Ansible', collapsed: false, items: getAutoItems('Ansible') }],
       '/Jenkins/': [{ text: 'Jenkins', collapsed: false, items: getAutoItems('Jenkins') }],
+      '/WindowsServer/': [{ text: 'Windows Server', collapsed: false, items: getAutoItems('WindowsServer') }],
       '/项目/': [{ text: '项目', collapsed: false, items: getAutoItems('项目') }],
     },
 
