@@ -102,7 +102,7 @@ server {
 静态资源由 Nginx 直接从文件系统读取并返回，不经过后端应用服务器。
 
 **配置示例**：
-```
+```ini
 location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2)$ {
     root /var/www/static;
     expires 30d;
@@ -146,7 +146,7 @@ location / {
 ## 四、进阶配置与优化
 ### 4.1 静态资源缓存策略
 合理的缓存策略可以大幅减少重复请求，提升用户体验。
-```
+```ini
 location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2)$ {
     root /var/www/static;
 
@@ -170,7 +170,7 @@ location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2)$ {
 
 ### 4.2 Gzip 压缩优化
 对文本类静态资源开启 Gzip 压缩，压缩率通常可达 70%。
-```
+```ini
 location ~* \.(css|js|svg|json|xml|txt)$ {
     root /var/www/static;
     gzip on;
@@ -181,7 +181,8 @@ location ~* \.(css|js|svg|json|xml|txt)$ {
 ```
 ### 4.3 高性能传输优化
 启用 Nginx 的零拷贝和网络优化特性：
-```location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+```ini
+location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
     root /var/www/static;
 
     # 零拷贝传输
