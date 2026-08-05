@@ -151,7 +151,7 @@ sudo systemctl enable grafana
 1. 登录 Grafana(默认账号 admin/admin)
 2. 点击左侧菜单 Configuration → Data Sources
 3. 点击 Add data source，选择 Prometheus
-4. 设置 URL 为 http://localhost:9090
+4. 设置 URL 为 `http://localhost:9090`
 5. 点击 Save & Test
 
 **导入 Nginx 监控仪表盘**
