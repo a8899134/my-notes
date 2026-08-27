@@ -16,7 +16,7 @@ SHOW VARIABLES LIKE 'datadir';
 ```
 which mysqld
 ```
--- -
+
 ## 二、安装目录
 ### 2.1安装目录位置
 | 安装方式         | 默认安装目录                               |
