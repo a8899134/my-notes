@@ -341,7 +341,7 @@ rename-command CONFIG ""
 ```
 #### 6.1.2 配置 Redis 连接
 application.yml：
-```ymal
+```yaml
 spring:
   redis:
     host: 192.168.1.100

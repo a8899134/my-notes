@@ -291,7 +291,7 @@ audit_log_format = JSON
 # --audit-log
 ```
 ### 6.4 日志轮转
-```sqk
+```sql
 -- 手动轮转审计日志[reference:52]
 SELECT audit_log_rotate();
 ```

@@ -133,7 +133,7 @@ systemctl restart prometheus
 1. 登录 Grafana Web 界面(默认端口 3000)
 2. 点击 Configuration → Data Sources → Add data source
 3. 选择 Prometheus
-4. 填写 URL：http://localhost:9090
+4. 填写 URL：`http://localhost:9090`
 5. 点击 Save & Test
 #### 2.5.2 导入 MySQL 监控仪表盘
 Grafana 社区提供了成熟的 MySQL 监控仪表盘模板：
