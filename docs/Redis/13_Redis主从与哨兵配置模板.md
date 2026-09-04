@@ -1,7 +1,8 @@
 **适用系统**：Rocky Linux 8(兼容 CentOS 8 / RHEL 8 / AlmaLinux 8)  
+
 **覆盖架构**：单机(基础)→ 主从(读写分离)→ 哨兵(高可用)
-**说明:**
-基于 Redis 7.2.5 的主从复制 + 哨兵模式，部署在 三台物理/云服务器
+
+**说明:** 基于 Redis 7.2.5 的主从复制 + 哨兵模式，部署在 三台物理/云服务器
 - Redis Master  IP ： 192.168.100.231
 - Redis Slave-1 IP ：192.168.100.232
 - Redis Slave-2 IP ：192.168.100.233
@@ -11,7 +12,7 @@
 1. 每台服务器同时运行一个 Redis 实例(构成一主两从)和一个 Sentinel 实例(构成三哨兵集群)
 2. 客户端通过哨兵获取当前主节点地址，写请求直接发送至 Master(:6379)
 3. 读请求可分散到任意 Slave(:6379)，从而实现读写分离与自动故障转移。
--- -
+
 ## 一、架构简介
 ### 1.1 架构特点
 | 场景       | 技术选型                    | 说明                                   |
@@ -64,7 +65,7 @@ Redis 7.2.5 主从复制 + 哨兵模式(三台服务器部署)
 - 哨兵集群监控所有Redis节点，自动故障转移时提升新Master。
 - 客户端通过哨兵获取当前Master地址，写请求只发往Master，读请求可分散至Slave。
 ```
--- -
+
 ## 二、系统级设置
 ### 2.1 内存 overcommit 设置
 Redis 在执行 RDB 或 AOF 重写时，会通过 fork() 创建子进程，需要临时申请大量虚拟地址空间。
@@ -90,6 +91,7 @@ sudo systemctl enable --now rc-local
 ```
 ### 2.3 ulimit 设置
 在 Rocky Linux 8 生产环境中，Redis 通常通过 systemd 服务管理。为确保修改永久生效，需要同时修改系统配置和服务配置。
+
 1. 修改系统全局限制 (/etc/security/limits.conf)
 ```bash
 sudo vim /etc/security/limits.conf
@@ -100,6 +102,7 @@ sudo vim /etc/security/limits.conf
 * hard nofile 65535
 ```
 这里 * 代表对所有用户生效，soft 为软限制，hard 为硬限制。
+
 **说明：** 后续会再 `/etc/systemd/system/redis.service` 中添加：
 ```text
 [Service]
@@ -107,6 +110,7 @@ LimitNOFILE=65535
 ```
 ### 2.4 net.core.somaxconn设置 
 当并发连接数瞬间激增，完成握手的连接数超过队列长度时，新连接将被丢弃，客户端会收到连接拒绝或超时的错误。Redis 启动时也会输出警告日志。
+
 编辑 /etc/sysctl.conf，添加或修改以下内容：
 ```text
 # 默认值128，生产环境设置为65535
@@ -114,6 +118,7 @@ net.core.somaxconn = 65535
 ```
 ### 2.5 vm.swappiness 设置
 控制内核使用 Swap 交换空间的倾向，取值范围 0-100。值越大，越倾向于将内存页交换到磁盘。
+
 编辑 /etc/sysctl.conf，添加或修改以下内容：
 ```text
 # 推荐值：设置为 1，表示仅在内存极度不足时才使用 Swap，最大程度避免 Redis 被交换
@@ -121,6 +126,7 @@ vm.swappiness = 1
 ```
 ### 2.6 net.ipv4.tcp_max_syn_backlog 设置
 核中处于 SYN_RECV 状态(已完成第一步握手，等待第三步握手 ACK)的连接队列最大长度。
+
 编辑 /etc/sysctl.conf，添加或修改以下内容：
 ```text
 net.ipv4.tcp_max_syn_backlog = 65535
@@ -157,7 +163,7 @@ sudo reboot
 sysctl vm.overcommit_memory net.core.somaxconn net.ipv4.tcp_max_syn_backlog vm.swappiness
 cat /sys/kernel/mm/transparent_hugepage/enabled
 ```
--- -
+
 ## 三、Redis 安装
 ### 3.1 安装编译依赖
 Redis 由 C 语言编写，编译时需要 GCC 编译器和 Make 构建工具。
@@ -196,11 +202,13 @@ make BUILD_TLS=yes BUILD_WITH_JEMALLOC=yes -j$(nproc)
 make test
 ```
 说明：运行 Redis 自带的测试用例，验证编译结果是否正确。全部通过会显示 All tests passed。
+
 3. 安装到指定目录(推荐)
 ```bash
 sudo make install PREFIX=/usr/local/redis
 ```
 说明：使用 PREFIX 参数指定安装目录，所有可执行文件会安装到 /usr/local/redis/bin 下。
+
 4. 配置 PATH 环境变量
 ```bash
 echo 'export PATH=/usr/local/redis/bin:$PATH' | sudo tee /etc/profile.d/redis.sh
@@ -422,7 +430,9 @@ sudo chmod 755 /etc/redis
 sudo chmod 640 /etc/redis/redis.conf
 ```
 **说明:** 后续的 RDB、AOF、主从复制参数会在以下后续配置。
+
 **注意:** bind 参数里面的 bind 127.0.0.1 192.168.100.231 中，192.168.100.231 替换成自己主机内网IP。
+
 - Redis Master 主机：bind 127.0.0.1 192.168.100.231
 - Redis Slave-1 主机：bind 127.0.0.1 192.168.100.232
 - Redis Slave-2 主机：bind 127.0.0.1 192.168.100.233
@@ -479,7 +489,7 @@ sudo systemctl status redis
 redis-cli -a Redis@root123 ping
 ```
 预期返回：PONG
--- -
+
 ## 四、持久化配置
 三台服务器都采用采用 RDB + AOF 混合持久化，定期备份 RDB 文件，实时记录 AOF 日志。每一台服务器都需要操作一遍。
 ### 4.1 创建 PID 文件目录
@@ -593,7 +603,7 @@ sudo systemctl restart redis
 # 查看服务状态
 sudo systemctl status redis
 ```
--- -
+
 ## 五、主从复制配置
 主从复制(Replication)是指将一个 Redis 节点作为主节点(Master)，一个或多个 Redis 节点作为从节点(Replica)，从节点通过复制主节点的数据，保持与主节点数据一致的过程。
 
@@ -748,7 +758,7 @@ Warning: Using a password with '-a' or '-u' option on the command line interface
 slave0:ip=192.168.100.232,port=6379,state=online,offset=1749,lag=0
 slave1:ip=192.168.100.233,port=6379,state=online,offset=1735,lag=1
 ```
---- -
+
 ## 六、哨兵模式配置
 哨兵(Sentinel)是 Redis 官方提供的高可用解决方案，用于监控 Redis 主从集群的健康状态，并在主节点发生故障时自动执行故障转移，将从节点提升为新的主节点。
 
@@ -839,8 +849,7 @@ SENTINEL master-reboot-down-after-period mymaster 0
 # 客户端重配置脚本：故障转移完成后调用
 # sentinel client-reconfig-script mymaster /usr/local/bin/sentinel_reconfig.sh
 ```
-**说明:** 
-1. bind 参数改成自己的 内网 IP，根据自己实际情况修改
+**说明:** bind 参数改成自己的 内网 IP，根据自己实际情况修改
 ### 6.3 设置文件权限
 ```bash
 sudo chown redis:redis /etc/redis/redis-sentinel.conf
@@ -1040,7 +1049,7 @@ repl_backlog_first_byte_offset:597518
 repl_backlog_histlen:90946
 [fmc@Redis-Master bin]$
 ```
--- -
+
 ## 七、数据备份恢复
 ### 7.1 定期备份 RDB 文件
 创建备份脚本：
@@ -1104,6 +1113,7 @@ sudo crontab -e
 redis-cli -a Redis@root123 INFO persistence | grep appendonly
 ```
 如果返回 `no`，需要先在配置文件中开启 AOF。
+
 2. 第二步：触发 AOF 重写(可选，建议备份前执行)
 ```bash
 redis-cli -a Redis@root123 BGREWRITEAOF
@@ -1116,6 +1126,7 @@ sudo cp -r /var/lib/redis/appendonlydir /backup/redis/appendonlydir.$(date +%Y%m
 **⚠️ 重要：** Redis 7.x 的 AOF 由多个文件组成，备份时必须备份整个目录，不能只备份单个文件。
 ### 7.3 数据恢复
 在 Redis 7.x 中，混合持久化是 AOF 重写时的默认行为(`aof-use-rdb-preamble yes`)，.base.rdb 文件本身是 RDB 格式的快照。恢复时只需还原整个 appendonlydir/ 目录，Redis 启动时会自动识别并加载。
+
 恢复步骤：
 
 ```bash

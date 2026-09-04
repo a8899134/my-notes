@@ -7,7 +7,9 @@ Redis 源码编译安装完成后，会在 Linux 文件系统中创建以下几�
 | 配置目录(/etc/redis)       | 存放配置文件           | 保留不动 | 建议备份    |
 | 数据目录(/var/lib/redis)   | 存放持久化数据(RDB/AOF) | 保留不动 | 必须定期备份  |
 | 日志目录(/var/log/redis)   | 存放运行日志           | 保留不动 | 按需保留    |
+
 核心原则：升级 Redis 时，只替换安装目录中的可执行文件，不动配置目录和数据目录。
+
 查看安装目录位置：
 ```bash
 which redis-server
@@ -18,7 +20,7 @@ which redis-server
 redis-cli -a 你的密码 CONFIG GET dir
 # 输出：/var/lib/redis
 ```
--- -
+
 ## 二、安装目录
 安装目录推荐默认是/usr/local/redis，源码编译安可自己设置目录。
 ### 2.1 安装目录位置
@@ -50,11 +52,12 @@ bin 目录下，存放 Redis 的所有可执行命令。
 | redis-check-aof | AOF 日志文件修复工具               |
 | redis-check-rdb | RDB 快照文件检查工具               |
 | redis-sentinel  | 哨兵模式启动程序(软链到 redis-server) |
+
 查看 bin 目录内容：
 ```bash
 ls -l /usr/local/redis/bin/
 ```
--- -
+
 ## 三、源码目录
 源码编译安装时，下载解压的源码目录(如 /opt/redis-7.2.5/)在安装完成后可以保留或删除。如果需要对 Redis 进行二次开发或深入阅读源码，建议保留。
 ### 3.1 源码目录的整体结构
@@ -102,7 +105,7 @@ deps 目录包含了 Redis 依赖的第三方代码库，这些代码可以独�
 |jemalloc/|内存分配器，替代 glibc 的 malloc，减少内存碎片|
 |linenoise/|命令行编辑工具，替代 readline，用于 redis-cli|
 |lua/|Lua 脚本引擎，用于支持 Redis 的 Lua 脚本功能|
--- -
+
 ## 四、配置文件
 ### 4.1 配置文件的位置
 |优先级|路径|说明|
@@ -110,6 +113,7 @@ deps 目录包含了 Redis 依赖的第三方代码库，这些代码可以独�
 |1|`/etc/redis/redis.conf`|源码编译安装的配置文件|
 |2|`/etc/redis.conf`|DNF / YUM / RPM 安装的配置文件|
 |3|启动时 `--conf` 参数指定|自定义配置文件路径|
+
 查看正在使用的配置文件：
 ```bash
 ps aux | grep redis-server
@@ -454,6 +458,7 @@ jemalloc-bg-thread yes
 ### 4.4 哨兵配置文件说明
 `/etc/redis-sentinel.conf`
 Sentinel 是 Redis 官方提供的高可用解决方案，主要功能是监控主从节点健康状态，并在主节点故障时自动执行故障转移，将某个从节点提升为新的主节点。
+
 **核心作用**：
 - 监控：定期检查主节点和从节点是否正常运行
 - 通知：当节点状态发生变化时，通过 API 或脚本通知管理员
@@ -542,7 +547,7 @@ acllog-max-len 128
 | `dir`                   | `/tmp`      | `/var/lib/redis/sentinel` | 避免 `/tmp` 重启被清理       |
 | `quorum`                | `2`         | 根据哨兵总数设置                  | 建议 > 哨兵总数的一半          |
 
--- -
+
 ## 五、数据目录
 数据目录推荐默认是:/var/lib/redis,源码编译安可自己设置目录。
 ### 5.1 查看数据目录位置
@@ -590,7 +595,7 @@ ls -l
 - RDB 和 AOF 文件必须定期备份，它们是数据恢复的核心资产
 - 数据目录和日志目录建议放在不同磁盘，避免同一磁盘故障导致数据 + 日志同时丢失
 - 监控磁盘使用率，防止持久化文件写满磁盘
--- -
+
 ## 六、日志目录
 日志文件目录推荐默认是:/var/log/redis，源码编译安可自己设置目录。
 ### 6.1 查看日志配置
@@ -618,7 +623,7 @@ sudo tail -50 /var/log/redis/redis.log
 # 实时跟踪日志输出
 sudo tail -f /var/log/redis/redis.log
 ```
--- -
+
 ## 七、配置文件与启动脚本
 ### 7.1 systemd 服务文件
 源码编译安装时，需要手动创建 systemd 服务文件，位置为 /etc/systemd/system/redis.service。
@@ -641,7 +646,7 @@ cat /etc/systemd/system/redis.service
 └── profile.d/
     └── redis.sh                  # Redis 环境变量(PATH 配置)
 ```
--- -
+
 ## 八、总结
 ### 8.1 核心目录速查表
 | 目录                                  | 一句话说明                           | 备份必要性  |

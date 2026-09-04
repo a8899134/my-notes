@@ -30,10 +30,11 @@ Redis 监控可以分为以下五个层次，由浅入深：
 | 企业级监控  | Zabbix                 | 传统企业统一监控平台，批量部署 | 生产常用 |
 | 云原生监控  | Prometheus + Grafana   | 云原生环境长期监控与告警    | 生产标配 |
 | 云原生方案  | 云厂商监控服务                | 云上 Redis 实例     | 按需使用 |
--- -
+
 ## 二、Redis-cli INFO
 ### 2.1 INFO 命令详解
 INFO 是 Redis 最核心的监控命令，可以获取 Redis 服务器的各种运行状态信息。
+
 基本用法：
 ```bash
 redis-cli -a 你的密码 INFO
@@ -60,12 +61,14 @@ redis-cli -a 你的密码 INFO
 | `used_memory_rss` |操作系统看到的内存占用|RSS 远大于 used_memory 说明内存碎片严重|
 | `mem_fragmentation_ratio` |内存碎片率(RSS / used_memory)|> 1.5 需关注，> 2.0 需处理|
 | `used_memory_peak_human` |历史内存使用峰值|用于容量规划|
+
 命中率指标(INFO stats)：
 
 |指标|说明|告警建议|
 |---|---|---|
 | `keyspace_hits` |缓存命中次数|结合 misses 计算命中率|
 | `keyspace_misses` |缓存未命中次数|命中率 < 90% 需排查|
+
 命中率计算公式：
 ```text
 命中率 = keyspace_hits / (keyspace_hits + keyspace_misses) × 100%
@@ -76,6 +79,7 @@ redis-cli -a 你的密码 INFO
 |---|---|---|
 | `connected_clients` |当前连接的客户端数|接近 maxclients 的 70% 需关注|
 | `blocked_clients` |被阻塞的客户端数|持续大于 0 需排查|
+
 主从复制指标(INFO replication)：
 
 |指标|说明|告警建议|
@@ -84,6 +88,7 @@ redis-cli -a 你的密码 INFO
 | `master_link_status` |主从连接状态(up/down)|不为 up 需告警|
 | `connected_slaves` |已连接的从节点数|少于预期需告警|
 | `master_repl_offset` |主节点复制偏移量|用于计算复制延迟|
+
 Key 数量指标(INFO keyspace)：
 ```bash
 redis-cli -a 密码 INFO keyspace
@@ -92,13 +97,16 @@ redis-cli -a 密码 INFO keyspace
 ```
 ### 2.3 慢查询日志(SLOWLOG)
 慢查询日志记录执行时间超过阈值的命令，是排查性能问题的关键工具。
+
 相关配置参数：
 
 |配置项|默认值|说明|
 |---|---|---|
 | `slowlog-log-slower-than` |10000(微秒)|慢查询阈值，超过此时间的命令会被记录|
 | `slowlog-max-len` |128|慢查询日志最大条数|
+
 生产环境建议：将 slowlog-max-len 设为 1000 以上，便于保留更多慢查询记录。
+
 查看慢查询日志：
 ```bash
 # 查看最近 10 条慢查询
@@ -121,7 +129,7 @@ MONITOR 命令可以实时输出 Redis 服务器接收到的所有命令。
 redis-cli -a 密码 MONITOR
 ```
 ⚠️ 生产环境警告：MONITOR 会输出所有操作，在高并发环境下可能导致 Redis 性能严重下降。生产环境严禁长期运行 MONITOR，仅可用于短时调试。
--- -
+
 ## 三、Redis Insight 监控
 ### 3.1 Redis Insight 简介
 Redis Insight 是 Redis 官方推出的免费可视化 GUI 管理工具，支持以下功能：
@@ -175,7 +183,7 @@ docker run -d -p 8001:8001 --name redisinsight redislabs/redisinsight
 分析数据库中各数据类型的内存占用分布，识别占用内存最大的 Key。
 5. 集群拓扑查看
 对于集群模式，Redis Insight 自动绘制节点拓扑图，直观显示主从关系和槽位分布。
--- -
+
 ## 四、Zabbix 监控
 ### 4.1 Zabbix 简介
 Zabbix 是一款成熟的开源企业级监控平台，广泛应用于传统企业 IT 基础设施监控。在 Zabbix 6.0 及以上版本中，官方内置了 Redis 监控模板，无需编写脚本即可快速接入 Redis 监控。
@@ -260,9 +268,14 @@ Plugins.Redis.Sessions.Redis1.Password=YourStrongPassword2026!
 | Plugins.Redis.KeepAlive |空闲连接保持时间，默认 300 秒|
 | Plugins.Redis.Timeout |请求超时时间，默认与全局 Timeout 一致|
 | Server |Zabbix Server 的 IP 地址|
+
 配置多实例：如需监控多个 Redis 实例，可配置多个 Session，如 Redis1、Redis2。
 
-**密码传递安全说明：** Zabbix Agent 2 的 Redis 插件不支持在 URI 中嵌入密码(如 `tcp://user: password@127.0.0.1` 这种格式是错误的)。正确方式是在配置文件中使用 `Plugins.Redis.Sessions.<SessionName>.Password` 单独配置密码，或在监控项键值中作为独立参数传递。
+**密码传递安全说明：** 
+
+Zabbix Agent 2 的 Redis 插件不支持在 URI 中嵌入密码(如 `tcp://user: password@127.0.0.1` 这种格式是错误的)。
+
+正确方式是在配置文件中使用 `Plugins.Redis.Sessions.<SessionName>.Password` 单独配置密码，或在监控项键值中作为独立参数传递。
 
 重启 Agent 2：
 ```bash
@@ -290,6 +303,7 @@ sudo systemctl restart zabbix-agent2
 |宏名称|值|说明|
 |---|---|---|
 | `{$REDIS.CONN.URI}` | `Redis1` |与 Agent 配置中的 Session 名称一致|
+
 **注意**：如果 Redis 有密码认证，Zabbix 7.x 版本的模板可能没有直观的密码宏变量，需在 Agent 配置文件中通过 `Plugins.Redis.Sessions.Redis1.Password` 指定密码。
 #### 4.4.5 验证监控数据
 在 Agent 端测试连接：
@@ -317,7 +331,9 @@ Zabbix Redis 模板内置了以下关键监控项：
 | `redis.info[rdb_last_bgsave_status]`    | 最后一次 RDB 保存状态        | 非 `ok` 需告警             |
 | `redis.info[master_link_status]`        | 主从复制连接状态(从节点)        | 不为 `up` 需告警            |
 | `redis.slowlog.count`                   | 慢查询日志数量              | 5 分钟内超过 10 条告警         |
+
 监控项命令格式说明：
+
 Zabbix Agent 2 的 Redis 插件支持以下格式的监控项键值：
 ```text
 redis.info[ConnString, Section, Key]
@@ -346,7 +362,7 @@ Zabbix Redis 模板内置了多个告警触发器：
 1. 进入 Configuration(配置)→ Actions(动作)→ Trigger actions(触发器动作)
 2. 点击 Create action(创建动作)
 3. 设置触发条件和告警接收人
--- -
+
 ## 五、Prometheus + Grafana
 ### 5.1 架构概述
 Prometheus + Grafana 是生产环境中最主流的云原生监控方案。
@@ -509,7 +525,7 @@ groups:
 rule_files:
   - "alerts.yml"
 ```
--- -
+
 ## 六、关键监控指标与告警阈值
 
 ### 6.1 核心指标速查表
@@ -530,7 +546,7 @@ rule_files:
 | P1(严重) | 内存使用率 > 85%、从节点全部离线   | 15 分钟内 | 短信 + 钉钉/企业微信      |
 | P2(警告) | 内存使用率 > 70%、命中率 < 70% | 1 小时内  | 钉钉/企业微信           |
 | P3(提醒) | 慢查询增多、连接数偏高           | 按需     | 邮件                |
--- -
+
 ## 七、生产环境监控方案建议
 ### 7.1 监控工具组合推荐
 | 场景                | 推荐工具组合                                               | 理由                       |

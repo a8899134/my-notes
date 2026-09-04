@@ -10,6 +10,7 @@ Redis 虽然提供了持久化机制(RDB 和 AOF)，可以在服务器重启后�
 |数据损坏|RDB/AOF 文件因各种原因损坏|❌ 不能|
 |勒索病毒|文件被加密或删除|❌ 不能|
 |机房灾难|火灾、水灾等|❌ 不能|
+
 **结论**：持久化是 Redis 的“内部自愈”机制，而备份是“外部保险”。生产环境必须两者兼备，缺一不可。
 ### 1.2 备份的文件
 Redis 备份的核心对象是持久化文件，而不是 Redis 进程本身：
@@ -20,15 +21,18 @@ Redis 备份的核心对象是持久化文件，而不是 Redis 进程本身：
 | AOF 文件 | `/var/lib/redis/appendonlydir/ ` | 包含多个 AOF 相关文件，数据最全 |
 | 配置文件   | `/etc/redis/redis.conf`          | Redis 运行配置，便于重建    |
 | 哨兵配置   | `/etc/redis-sentinel.conf`       | 高可用配置，便于重建         |
+
 **生产环境建议**：至少备份 RDB 文件、AOF 目录和配置文件。
+
 ### 1.3 备份策略的三种模式
 | 策略         | 说明                                                                                      | 适用场景            |
 | ---------- | --------------------------------------------------------------------------------------- | --------------- |
 | 仅 RDB      | 定期备份 RDB 快照                                                                             | 小型业务、对数据完整性要求不高 |
 | RDB + AOF  | 定期备份 RDB，配合 AOF 增量日志                                                                    | 大多数业务场景         |
 | 混合持久化 + 备份 | AOF 目录中包含 RDB 快照(`.base.rdb`)和增量日志(`.incr.aof`)，备份整个 `appendonlydir/` 目录即可兼顾恢复速度和数据完整性。 | 追求数据完整性和恢复速度    |
+
 **生产环境推荐**：采用 RDB + AOF 混合持久化，定期备份 RDB 文件，实时记录 AOF 日志。
--- -
+
 ## 二、RDB 备份
 ### 2.1 基本概念
 RDB 文件是 Redis 在某个时间点的全量数据快照，是一个经过压缩的二进制文件。RDB 备份就是将这个文件复制一份保存到安全位置。
@@ -77,7 +81,7 @@ sudo cp /var/lib/redis/dump.rdb /backup/redis/dump.rdb.$(date +%Y%m%d_%H%M%S)
 # 检查文件是否存在且大小正常
 ls -lh /backup/redis/
 ```
-### 2.4 自动触发备份(cron 定时任务)
+### 2.4 自动触发备份
 生产环境应配置定时任务，定期自动备份 RDB 文件。
 创建备份脚本：
 ```bash
@@ -135,7 +139,7 @@ sudo crontab -e
 ```bash
 0 2 * * * /usr/local/bin/redis_backup.sh >> /var/log/redis_backup.log 2>&1
 ```
--- -
+
 ## 三、AOF 备份
 ### 3.1 基本概念
 在 Redis 7.0+ 版本中，AOF 存储方式从传统的单文件模式升级为多文件模式。一个 AOF 由以下三种文件组成：
@@ -185,6 +189,7 @@ redis-cli -a 你的密码 BGREWRITEAOF
 redis-cli -a 你的密码 rename-command CONFIG参数 CONFIG GET appendonly
 ```
 如果返回 `no`，需要先在配置文件中开启 AOF。
+
 **说明：**  ename-command CONFIG 参数 在 redis.conf 文件里。
 
 2. 第二步：触发 AOF 重写(可选，建议备份前执行)
@@ -207,7 +212,7 @@ auto-aof-rewrite-min-size 64mb
 - 当前 AOF 文件大小比上次重写后增长了 100%(即翻了一倍)
 - 且当前 AOF 文件大小至少为 64 MB
 两个条件同时满足时，自动触发 BGREWRITEAOF。
----- -
+
 ## 四、定期备份策略
 ### 4.1 备份频率建议
 |数据重要性|RDB 备份频率|AOF 备份频率|说明|
@@ -231,7 +236,7 @@ rsync -avz /backup/redis/ root@192.168.1.200:/backup/redis/
 - a：归档模式，保留文件属性
 - v：显示详细过程
 - z：传输时压缩数据
--- -
+
 ## 五、数据恢复
 ### 5.1 恢复前的准备工作
 1. 停止 Redis 服务
@@ -248,7 +253,7 @@ sudo cp -r /var/lib/redis /var/lib/redis.backup
 sudo rm -rf /var/lib/redis/*
 ```
 ### 5.2 从 RDB 文件恢复
-RDB 恢复是最简单、最快的方式，适用于**全量恢复**场景。
+RDB 恢复是最简单、最快的方式，适用于全量恢复场景。
 恢复步骤：
 - 将备份的 RDB 文件复制到数据目录
 - 确保文件名与配置中的 dbfilename 一致
@@ -269,7 +274,10 @@ redis-cli -a 你的密码 DBSIZE
 redis-cli -a 你的密码 INFO stats | grep keyspace
 ```
 ### 5.3 从 AOF 目录恢复
-在 Redis 7.x 中，混合持久化是 AOF 重写时的默认行为(`aof-use-rdb-preamble yes`)，.base.rdb 文件本身是 RDB 格式的快照。恢复时只需还原整个 appendonlydir/ 目录，Redis 启动时会自动识别并加载。
+在 Redis 7.x 中，混合持久化是 AOF 重写时的默认行为(`aof-use-rdb-preamble yes`)，.base.rdb 文件本身是 RDB 格式的快照。
+
+恢复时只需还原整个 appendonlydir/ 目录，Redis 启动时会自动识别并加载。
+
 恢复步骤：
 ```bash
 # 删除当前 AOF 目录
@@ -336,9 +344,9 @@ redis-cli -a 你的密码 INFO persistence
 演练频率建议：每季度至少进行一次完整的备份恢复演练。
 ### 6.2 演练步骤
 1. 第一步：在测试环境进行恢复
-- 部署一台与生产环境配置相同的测试机器
--  从备份中恢复数据
--  验证数据完整性
+	- 部署一台与生产环境配置相同的测试机器
+	-  从备份中恢复数据
+	-  验证数据完整性
 
 2. 第二步：记录恢复时间
 记录从开始恢复到服务正常提供的时间，作为恢复时间目标(RTO)的参考。
@@ -356,7 +364,7 @@ redis-cli -a 你的密码 INFO persistence
 |服务可正常对外提供|☐|客户端连接测试|
 |恢复时间在可接受范围|☐|记录耗时|
 |配置文件已同步备份|☐|配置文件是否存在|
--- -
+
 ## 七、总结
 ### 7.1 核心要点
 1. 持久化 ≠ 备份：持久化是内部自愈，备份是外部保险，两者必须同时具备

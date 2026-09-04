@@ -1,1 +1,0 @@
-RedisInsight 是 Redis 官方团队开发的可视化数据库管理工具，基于 Electron 构建，支持 Windows、macOS、Linux 全平台。免费下载，开源，功能齐全，基本上你能想到的 Redis 管理需求它都覆盖了。

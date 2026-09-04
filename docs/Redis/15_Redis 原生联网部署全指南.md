@@ -1,8 +1,8 @@
-**目标读者**：Linux 运维工程师、后端开发人员、架构师  
-**适用系统**：Rocky Linux 8(兼容 CentOS 8 / RHEL 8 / AlmaLinux 8)  
-**覆盖架构**：单机(基础)→ 主从(读写分离)→ 哨兵(高可用)→ 集群(大规模)  
-**版本说明**：本指南基于 Redis 7.2.x(2026 年推荐的生产稳定版本)
--- -
+目标读者：Linux 运维工程师、后端开发人员、架构师  
+适用系统：Rocky Linux 8(兼容 CentOS 8 / RHEL 8 / AlmaLinux 8)  
+覆盖架构：单机(基础)→ 主从(读写分离)→ 哨兵(高可用)→ 集群(大规模)  
+版本说明：本指南基于 Redis 7.2.x(2026 年推荐的生产稳定版本)
+
 ## 一、环境准备与系统初始化
 在部署任何架构之前，需要先完成 Rocky Linux 8 的系统初始化工作。以下是生产环境的必备步骤。
 ### 1.1 系统更新与基础软件安装
@@ -11,7 +11,10 @@
 # 更新系统所有软件包
 sudo dnf upgrade --refresh -y
 ```
-`--refresh` 参数强制刷新仓库元数据，`-y` 参数自动确认所有操作。生产环境建议在执行此命令前确认没有重要的服务正在运行。
+
+- `--refresh` 参数强制刷新仓库元数据。
+- `-y` 参数自动确认所有操作。生产环境建议在执行此命令前确认没有重要的服务正在运行。
+
 安装必要的系统工具，这些工具在后续编译和调试中会用到：
 ```
 sudo dnf install -y gcc make wget tar net-tools vim \
@@ -26,9 +29,12 @@ sudo dnf install -y gcc make wget tar net-tools vim \
 - `vim`：文本编辑器，用于修改配置文件
 - `systemd-devel`：systemd 开发库，用于编译 systemd 支持
 - `openssl-devel`：OpenSSL 开发库，用于编译 TLS 支持
+
 ### 1.2 关闭透明大页(THP)
 
-Redis 官方强烈建议关闭透明大页(Transparent Huge Pages，THP)，因为它会导致 Redis 延迟不稳定和内存使用效率下降。THP 是 Linux 内核的一个特性，会将内存页从 4 KB 合并为 2 MB 以减少 TLB 缺失，但这种合并过程在 Redis 的 fork 操作中会引发显著的延迟尖峰。
+Redis 官方强烈建议关闭透明大页(Transparent Huge Pages，THP)，因为它会导致 Redis 延迟不稳定和内存使用效率下降。
+
+THP 是 Linux 内核的一个特性，会将内存页从 4 KB 合并为 2 MB 以减少 TLB 缺失，但这种合并过程在 Redis 的 fork 操作中会引发显著的延迟尖峰。
 ```
 # 临时关闭(重启后失效)
 echo never > /sys/kernel/mm/transparent_hugepage/enabled
@@ -75,7 +81,9 @@ sudo firewall-cmd --reload
 # 查看已放行的端口列表
 sudo firewall-cmd --list-ports
 ```
-**安全提示**：如果 Redis 只允许特定客户端访问，建议配置更严格的来源 IP 限制。例如只允许 192.168.1.0/24 网段访问：
+
+安全提示：如果 Redis 只允许特定客户端访问，建议配置更严格的来源 IP 限制。例如只允许 192.168.1.0/24 网段访问：
+
 ```
 sudo firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192.168.1.0/24" port protocol="tcp" port="6379" accept'
 sudo firewall-cmd --reload
@@ -84,12 +92,12 @@ sudo firewall-cmd --reload
 
 SELinux 默认处于 enforcing 模式，可能会阻止 Redis 正常启动。有两种处理方式：
 
-**方式一：设置为 permissive 模式(简单，允许访问但记录日志)**
+1. 设置为 permissive 模式(简单，允许访问但记录日志)
 ```
 sudo setenforce 0
 sudo sed -i 's/SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
 ```
-**方式二：配置 SELinux 策略(安全，推荐生产环境)**
+2. 配置 SELinux 策略(安全，推荐生产环境)
 ```
 # 安装 SELinux 管理工具
 sudo dnf install -y policycoreutils-python-utils
@@ -118,11 +126,12 @@ sudo mkdir -p /var/log/redis
 sudo chown redis:redis /var/log/redis
 sudo chmod 750 /var/log/redis
 ```
-**目录说明**：
+目录说明：
+
 - `/var/lib/redis`：存放 RDB 和 AOF 持久化文件
 - `/var/log/redis`：存放 Redis 日志文件
 - `/etc/redis`：存放配置文件(后续创建)
--- -
+
 ## 二、单机模式部署
 
 单机模式是最基础的部署方式，适用于开发测试环境、小规模生产环境(数据量 < 50 GB)或缓存场景。所有数据存储在一个 Redis 实例中，不做复制和分片。
@@ -130,11 +139,11 @@ sudo chmod 750 /var/log/redis
 
 Redis 在 Rocky Linux 8 上有三种安装方式，根据需求选择合适的方案：
 
-| 安装方式                  | 版本        | 优点                | 缺点          | 适用场景         |
-| -- --- --- --- --- --- --- - | -- --- --- - | -- --- --- --- --- --- | -- --- --- --- | -- --- --- --- - |
-| **DNF 安装(AppStream)** | 5.0 / 6.0 | 安装简单，自动集成 systemd | 版本较旧，缺少新特性  | 不需要最新功能的普通场景 |
-| **Remi 仓库安装**         | 7.2+      | 版本新，通过 RPM 管理     | 需要添加第三方仓库   | 需要较新版本但不想编译  |
-| **源码编译安装**            | 最新稳定版     | 版本最新，可自定义编译选项     | 安装较复杂，需手动管理 | 生产环境推荐       |
+| 安装方式 | 版本 | 优点 | 缺点 | 适用场景 |
+|---|---|---|---|---|
+| DNF 安装(AppStream) | 5.0 / 6.0 | 安装简单，自动集成 systemd | 版本较旧，缺少新特性 | 不需要最新功能的普通场景 |
+| Remi 仓库安装 | 7.2+ | 版本新，通过 RPM 管理 | 需要添加第三方仓库 | 需要较新版本但不想编译 |
+| 源码编译安装 | 最新稳定版 | 版本最新，可自定义编译选项 | 安装较复杂，需手动管理 | 生产环境推荐 |
 
 本指南推荐 **源码编译安装 Redis 7.2.x**，因为可以获取最新的稳定版本、性能优化和安全补丁。截至 2026 年，Redis 7.2.x 是官方推荐的生产稳定版本。
 ### 2.2 源码编译安装 Redis 7.2
@@ -358,7 +367,7 @@ redis-benchmark -h 127.0.0.1 -p 6379 -a your_strong_password_here -c 50 -n 10000
 - `-c 50`：50 个并发客户端
 - `-n 10000`：总共执行 10000 个请求
 - `-q`：仅显示 QPS(每秒请求数)，不显示详细结果
--- -
+
 ## 三、主从复制模式部署
 
 主从复制模式在前一章单机模式的基础上，通过数据复制实现读写分离和数据冗余。Master 负责所有写操作，Slave 从 Master 复制数据并承担读负载。
@@ -367,11 +376,11 @@ redis-benchmark -h 127.0.0.1 -p 6379 -a your_strong_password_here -c 50 -n 10000
 
 本章以三台服务器为例构建 **1 主 2 从** 架构：
 
-|节点角色|IP 地址|Redis 端口|说明|
-|-- -|-- -|-- -|-- -|
-|Master|192.168.1.10|6379|处理所有写操作，可选读操作|
-|Slave 1|192.168.1.11|6379|从 Master 复制数据，承担读操作|
-|Slave 2|192.168.1.12|6379|从 Master 复制数据，承担读操作|
+| 节点角色 | IP 地址 | Redis 端口 | 说明 |
+|----------|---------|------------|------|
+| Master | 192.168.1.10 | 6379 | 处理所有写操作，可选读操作 |
+| Slave 1 | 192.168.1.11 | 6379 | 从 Master 复制数据，承担读操作 |
+| Slave 2 | 192.168.1.12 | 6379 | 从 Master 复制数据，承担读操作 |
 
 **网络要求**：所有节点之间需要互相通信，确保防火墙开放 6379 端口。
 ### 3.2 Master 节点配置
@@ -447,6 +456,7 @@ master_repl_offset:12345
 - `state=online`：从节点连接状态正常
 - `offset`：复制偏移量，Master 与 Slave 应保持一致或接近
 - `lag=0`：从节点延迟为 0 秒(理论上应为 0，实际允许毫秒级差异)
+
 在任意 **Slave** 上执行：
 ```
 redis-cli -a slave_password INFO replication
@@ -463,6 +473,7 @@ slave_repl_offset:12345
 ```
 - `master_link_status:up`：与 Master 的连接状态正常
 - `master_last_io_seconds_ago`：上次与 Master 通信的间隔(秒)，不应超过重新连接超时阈值
+
 ### 3.5 测试主从复制
 ```
 # 在 Master 上写入数据
@@ -480,14 +491,14 @@ redis-cli -a slave_password -h 192.168.1.11
 (error) READONLY You can't write against a read only replica.
 ```
 ### 3.6 主从复制常用命令
-|命令|作用|示例|
-|-- -|-- -|-- -|
-|`INFO replication`|查看复制状态|`INFO replication`|
-|`REPLICAOF <host> <port>`|将当前节点设为指定 Master 的从节点|`REPLICAOF 192.168.1.10 6379`|
-|`REPLICAOF NO ONE`|解除复制，将当前节点提升为 Master|`REPLICAOF NO ONE`|
-|`ROLE`|查看当前节点的角色(master/slave)|`ROLE`|
-|`WAIT <numreplicas> <timeout>`|等待指定数量的从节点确认复制|`WAIT 1 5000`|
--- -
+| 命令 | 作用 | 示例 |
+|------|------|------|
+| `INFO replication` | 查看复制状态 | `INFO replication` |
+| `REPLICAOF <host> <port>` | 将当前节点设为指定 Master 的从节点 | `REPLICAOF 192.168.1.10 6379` |
+| `REPLICAOF NO ONE` | 解除复制，将当前节点提升为 Master | `REPLICAOF NO ONE` |
+| `ROLE` | 查看当前节点的角色(master/slave) | `ROLE` |
+| `WAIT <numreplicas> <timeout>` | 等待指定数量的从节点确认复制 | `WAIT 1 5000` |
+
 ## 四、哨兵模式部署
 
 哨兵模式在前一章主从复制的基础上，增加了自动故障转移能力。当 Master 宕机时，哨兵集群会自动选举一个 Slave 成为新的 Master，实现高可用。
@@ -496,13 +507,14 @@ redis-cli -a slave_password -h 192.168.1.11
 
 本章以三台服务器为例构建 **1 主 2 从 3 哨兵** 架构：
 
-|节点角色|IP 地址|Redis 端口|哨兵端口|说明|
-|-- -|-- -|-- -|-- -|-- -|
-|Master|192.168.1.10|6379|26379|主节点，处理写操作|
-|Slave 1|192.168.1.11|6379|26379|从节点，读操作 + 哨兵|
-|Slave 2|192.168.1.12|6379|26379|从节点，读操作 + 哨兵|
+| 节点角色 | IP 地址 | Redis 端口 | 哨兵端口 | 说明 |
+|----------|---------|------------|----------|------|
+| Master | 192.168.1.10 | 6379 | 26379 | 主节点，处理写操作 |
+| Slave 1 | 192.168.1.11 | 6379 | 26379 | 从节点，读操作 + 哨兵 |
+| Slave 2 | 192.168.1.12 | 6379 | 26379 | 从节点，读操作 + 哨兵 |
 
 **注意**：生产环境中，哨兵通常与 Redis 部署在同一台服务器上以节省资源，但在极端场景下可能导致 Redis 和哨兵同时不可用。如果条件允许，建议将哨兵独立部署在不同服务器上。
+
 ### 4.2 配置 Redis 主从
 首先按照第三章的步骤配置好 1 主 2 从架构。Master 和 Slave 的配置文件需要做以下调整：
 ```
@@ -547,15 +559,16 @@ dir /var/lib/redis
 ```
 **配置参数说明**：
 
-|参数|说明|
-|-- -|-- -|
-|`port`|哨兵监听端口，默认 26379|
-|`daemonize yes`|以守护进程方式运行|
-|`sentinel monitor`|要监控的主节点名称、IP、端口和 quorum(法定人数)|
-|`sentinel auth-pass`|主节点的密码，必须与 Redis 的 requirepass 一致|
-|`sentinel down-after-milliseconds`|主观下线判定时间(毫秒)，网络环境较差时可适当增大|
-|`sentinel failover-timeout`|故障转移各步骤的超时总和|
-|`sentinel parallel-syncs`|故障转移后同时进行同步的从节点数量|
+| 参数 | 说明 |
+|------|------|
+| `port` | 哨兵监听端口，默认 26379 |
+| `daemonize yes` | 以守护进程方式运行 |
+| `sentinel monitor` | 要监控的主节点名称、IP、端口和 quorum(法定人数) |
+| `sentinel auth-pass` | 主节点的密码，必须与 Redis 的 requirepass 一致 |
+| `sentinel down-after-milliseconds` | 主观下线判定时间(毫秒)，网络环境较差时可适当增大 |
+| `sentinel failover-timeout` | 故障转移各步骤的超时总和 |
+| `sentinel parallel-syncs` | 故障转移后同时进行同步的从节点数量 |
+
 `quorum` 的设置原则：
 
 - 哨兵数量必须为**奇数**(如 3, 5, 7)
@@ -665,24 +678,24 @@ sudo tail -f /var/log/redis/sentinel.log
 sudo systemctl start redis-server
 ```
 ### 4.8 哨兵常用命令
-|命令|作用|示例|
-|-- -|-- -|-- -|
-|`INFO sentinel`|查看哨兵整体状态|`INFO sentinel`|
-|`SENTINEL masters`|列出所有被监控的主节点|`SENTINEL masters`|
-|`SENTINEL master <name>`|查看指定主节点详情|`SENTINEL master mymaster`|
-|`SENTINEL slaves <name>`|查看指定主节点的从节点|`SENTINEL slaves mymaster`|
-|`SENTINEL sentinels <name>`|查看监控同一主节点的其他哨兵|`SENTINEL sentinels mymaster`|
-|`SENTINEL get-master-addr-by-name <name>`|获取当前主节点地址|`SENTINEL get-master-addr-by-name mymaster`|
-|`SENTINEL failover <name>`|手动触发故障转移|`SENTINEL failover mymaster`|
-|`SENTINEL ckquorum <name>`|检查是否满足故障转移的 quorum 条件|`SENTINEL ckquorum mymaster`|
+| 命令 | 作用 | 示例 |
+|------|------|------|
+| `INFO sentinel` | 查看哨兵整体状态 | `INFO sentinel` |
+| `SENTINEL masters` | 列出所有被监控的主节点 | `SENTINEL masters` |
+| `SENTINEL master <name>` | 查看指定主节点详情 | `SENTINEL master mymaster` |
+| `SENTINEL slaves <name>` | 查看指定主节点的从节点 | `SENTINEL slaves mymaster` |
+| `SENTINEL sentinels <name>` | 查看监控同一主节点的其他哨兵 | `SENTINEL sentinels mymaster` |
+| `SENTINEL get-master-addr-by-name <name>` | 获取当前主节点地址 | `SENTINEL get-master-addr-by-name mymaster` |
+| `SENTINEL failover <name>` | 手动触发故障转移 | `SENTINEL failover mymaster` |
+| `SENTINEL ckquorum <name>` | 检查是否满足故障转移的 quorum 条件 | `SENTINEL ckquorum mymaster` |
 ### 4.9 哨兵部署最佳实践
 
-1. **哨兵数量为奇数且 ≥ 3**：避免选举时出现平局(split-brain 问题)-。
-2. **quorum 设为哨兵数量的一半加一(如 3 个哨兵设 2，5 个哨兵设 3)**：保证故障判定需要超过半数同意，防止单点误判-。
-3. **合理设置超时时间**：`down-after-milliseconds` 不宜过小(易误判)，也不宜过大(故障检测慢)，30 秒是经验值。
-4. **部署在不同物理机/可用区**：避免单机房故障导致所有哨兵同时失效-。
-5. **配置通知脚本**：在 `sentinel.conf` 中配置 `sentinel notification-script`，故障转移时发送告警 [-47](https://redis.io/tutorials/operate/redis-at-scale/high-availability/?utm_campaign=how-to-setup-redis-with-high-availability-in-bare-metal&utm_medium=referral&utm_source=bookofdaniel_blog)。
-6. **定期演练故障转移**：使用 `SENTINEL failover` 命令手动触发故障转移，验证流程。
+1. 哨兵数量为奇数且 ≥ 3：避免选举时出现平局(split-brain 问题)-。
+2. quorum 设为哨兵数量的一半加一(如 3 个哨兵设 2，5 个哨兵设 3)：保证故障判定需要超过半数同意，防止单点误判-。
+3. 合理设置超时时间：`down-after-milliseconds` 不宜过小(易误判)，也不宜过大(故障检测慢)，30 秒是经验值。
+4. 部署在不同物理机/可用区：避免单机房故障导致所有哨兵同时失效-。
+5. 配置通知脚本：在 `sentinel.conf` 中配置 `sentinel notification-script`，故障转移时发送告警)。
+6. 定期演练故障转移：使用 `SENTINEL failover` 命令手动触发故障转移，验证流程。
 -- -
 ## 五、集群模式部署
 
@@ -690,16 +703,16 @@ sudo systemctl start redis-server
 
 ### 5.1 架构规划
 
-Redis Cluster 至少需要 **3 主 3 从** 共 6 个节点(3 个 Master 各带 1 个 Slave)-[-57](https://my.oschina.net/emacs_9724783/blog/19152199)。本章以 3 台服务器各运行 2 个实例为例部署：
+Redis Cluster 至少需要**3 主3从**共6个节点(3个Master各带1个Slave)。本章以3台服务器各运 2个实例为例部署：
 
-|服务器|实例端口|角色|slot 范围|
-|-- -|-- -|-- -|-- -|
-|Server A (192.168.1.20)|7000|Master 1|0 - 5460|
-|Server A (192.168.1.20)|7003|Slave of Master 1|-|
-|Server B (192.168.1.21)|7001|Master 2|5461 - 10922|
-|Server B (192.168.1.21)|7004|Slave of Master 2|-|
-|Server C (192.168.1.22)|7002|Master 3|10923 - 16383|
-|Server C (192.168.1.22)|7005|Slave of Master 3|-|
+| 服务器 | 实例端口 | 角色 | slot 范围 |
+|--------|----------|------|-----------|
+| Server A (192.168.1.20) | 7000 | Master 1 | 0 - 5460 |
+| Server A (192.168.1.20) | 7003 | Slave of Master 1 | - |
+| Server B (192.168.1.21) | 7001 | Master 2 | 5461 - 10922 |
+| Server B (192.168.1.21) | 7004 | Slave of Master 2 | - |
+| Server C (192.168.1.22) | 7002 | Master 3 | 10923 - 16383 |
+| Server C (192.168.1.22) | 7005 | Slave of Master 3 | - |
 
 ### 5.2 创建节点配置
 
@@ -869,40 +882,40 @@ redis-cli --cluster reshard 192.168.1.20:7000 -a cluster_password
 - 从哪些源节点迁移(可输入 `all` 表示从所有现有 Master 平均分)
 ### 5.8 集群常用命令
 
-| 命令                              | 作用                       | 示例                               |
-| -- --- --- --- --- --- --- --- --- --- -- | -- --- --- --- --- --- --- --- - | -- --- --- --- --- --- --- --- --- --- --- |
-| `CLUSTER INFO`                  | 查看集群状态                   | `CLUSTER INFO`                   |
-| `CLUSTER NODES`                 | 查看集群节点及槽位分布              | `CLUSTER NODES`                  |
-| `CLUSTER MEET <ip> <port>`      | 将节点加入集群                  | `CLUSTER MEET 192.168.1.23 7006` |
-| `CLUSTER FORGET <node-id>`      | 从集群移除节点                  | `CLUSTER FORGET d0a1b2c3...`     |
-| `CLUSTER REPLICATE <master-id>` | 将当前节点设为指定 Master 的 Slave | `CLUSTER REPLICATE d0a1b2...`    |
-| `CLUSTER KEYSLOT <key>`         | 计算 key 所属槽位              | `CLUSTER KEYSLOT user:1001`      |
-| `CLUSTER ADDSLOTS <slot>`       | 添加槽位到当前节点                | `CLUSTER ADDSLOTS 0 1 2 3`       |
-| `CLUSTER FAILOVER`              | 手动触发从节点接管                | `CLUSTER FAILOVER`               |
+| 命令 | 作用 | 示例 |
+|------|------|------|
+| `CLUSTER INFO` | 查看集群状态 | `CLUSTER INFO` |
+| `CLUSTER NODES` | 查看集群节点及槽位分布 | `CLUSTER NODES` |
+| `CLUSTER MEET <ip> <port>` | 将节点加入集群 | `CLUSTER MEET 192.168.1.23 7006` |
+| `CLUSTER FORGET <node-id>` | 从集群移除节点 | `CLUSTER FORGET d0a1b2c3...` |
+| `CLUSTER REPLICATE <master-id>` | 将当前节点设为指定 Master 的 Slave | `CLUSTER REPLICATE d0a1b2...` |
+| `CLUSTER KEYSLOT <key>` | 计算 key 所属槽位 | `CLUSTER KEYSLOT user:1001` |
+| `CLUSTER ADDSLOTS <slot>` | 添加槽位到当前节点 | `CLUSTER ADDSLOTS 0 1 2 3` |
+| `CLUSTER FAILOVER` | 手动触发从节点接管 | `CLUSTER FAILOVER` |
 ### 5.9 集群最佳实践
-1. **至少 3 主 3 从**：确保节点宕机时仍有多数派能进行故障转移，这是生产环境的配置下限-。
-2. **Master 和 Slave 分布在不同物理机**：避免机器故障导致数据和副本同时丢失。
-3. **合理规划槽位分配**：使用 `--cluster rebalance` 定期检查并平衡槽位分布-。
-4. **客户端使用集群模式**：使用支持 Redis Cluster 的客户端库(如 JedisCluster、Lettuce、redis-py-cluster)。
-5. **Hash Tag 使用**：如果业务需要多个 key 一起操作(如事务、`MGET`、`MSET`)，可使用 `{...}` 标签强制它们分配到同一槽位，避免跨槽操作报 `CROSSSLOT` 错误。
-6. **监控集群状态**：重点关注 `cluster_state`、`cluster_known_nodes`、槽位覆盖情况等指标。
-7. **开启持久化**：每个节点都应开启持久化(AOF 推荐使用 `everysec` 策略)，避免节点重启后数据丢失。尤其在集群模式下，节点恢复依赖持久化文件。
-8. **网络要求**：节点之间需要同时开放 Redis 端口(如 6379)和集群总线端口(port+10000，如 16379)，防火墙须放行这两个端口的 TCP 流量。
--- -
+1. 至少 3 主 3 从：确保节点宕机时仍有多数派能进行故障转移，这是生产环境的配置下限-。
+2. Master 和 Slave 分布在不同物理机：避免机器故障导致数据和副本同时丢失。
+3. 合理规划槽位分配：使用 `--cluster rebalance` 定期检查并平衡槽位分布-。
+4. 客户端使用集群模式：使用支持 Redis Cluster 的客户端库(如 JedisCluster、Lettuce、redis-py-cluster)。
+5. Hash Tag 使用：如果业务需要多个 key 一起操作(如事务、`MGET`、`MSET`)，可使用 `{...}` 标签强制它们分配到同一槽位，避免跨槽操作报 `CROSSSLOT` 错误。
+6. 监控集群状态：重点关注 `cluster_state`、`cluster_known_nodes`、槽位覆盖情况等指标。
+7. 开启持久化：每个节点都应开启持久化(AOF 推荐使用 `everysec` 策略)，避免节点重启后数据丢失。尤其在集群模式下，节点恢复依赖持久化文件。
+8. 网络要求：节点之间需要同时开放 Redis 端口(如 6379)和集群总线端口(port+10000，如 16379)，防火墙须放行这两个端口的 TCP 流量。
+
 ## 六、四种架构对比与选型建议
 ### 6.1 架构对比总览
 
-|维度|单机|主从复制|哨兵模式|集群模式|
-|-- -|-- -|-- -|-- -|-- -|
-|**数据容量**|≤ 单机内存|≤ 单机内存|≤ 单机内存|**水平扩展，可达数十 TB**|
-|**读性能**|受限于单机|多个 Slave 分流|多个 Slave 分流|多 Master 分布，可线性扩展|
-|**写性能**|受限于单机|受限于 Master|受限于 Master|**多 Master 并行写入**|
-|**高可用**|❌ 无|❌ 需手动切换|✅ 自动故障转移|✅ 内置故障转移|
-|**运维复杂度**|最低|较低|中等|较高|
-|**适用场景**|开发测试、小规模缓存|读写分离、中等规模|**生产高可用(中等规模)**|**生产高可用(大规模)**|
-|**最小节点数**|1|1 主 1 从|1 主 2 从 + 3 哨兵|3 主 3 从|
-|**数据分片**|无|无|无|哈希槽(16384 个)|
-|**多 key 操作**|全部支持|全部支持|全部支持|仅支持同一 slot 内|
+| 维度 | 单机 | 主从复制 | 哨兵模式 | 集群模式 |
+|------|------|----------|----------|----------|
+| 数据容量 | ≤ 单机内存 | ≤ 单机内存 | ≤ 单机内存 | 水平扩展，可达数十 TB |
+| 读性能 | 受限于单机 | 多个 Slave 分流 | 多个 Slave 分流 | 多 Master 分布，可线性扩展 |
+| 写性能 | 受限于单机 | 受限于 Master | 受限于 Master | 多 Master 并行写入 |
+| 高可用 | ❌ 无 | ❌ 需手动切换 | ✅ 自动故障转移 | ✅ 内置故障转移 |
+| 运维复杂度 | 最低 | 较低 | 中等 | 较高 |
+| 适用场景 | 开发测试、小规模缓存 | 读写分离、中等规模 | 生产高可用(中等规模) | 生产高可用(大规模) |
+| 最小节点数 | 1 | 1 主 1 从 | 1 主 2 从 + 3 哨兵 | 3 主 3 从 |
+| 数据分片 | 无 | 无 | 无 | 哈希槽(16384 个) |
+| 多 key 操作 | 全部支持 | 全部支持 | 全部支持 | 仅支持同一 slot 内 |
 ### 6.2 选型决策树
 ```
 数据量 > 100GB？
@@ -923,23 +936,23 @@ redis-cli --cluster reshard 192.168.1.20:7000 -a cluster_password
 ```
 ### 6.3 生产环境推荐配置速查
 
-| 架构  | 适用数据量   | 推荐配置                            | 预期 QPS(读/写)       |
-| -- - | -- --- -- | -- --- --- --- --- --- --- --- --- --- -- | -- --- --- --- --- --- |
-| 单机  | < 20GB  | 4C8G，Redis maxmemory=6GB        | 5-10 万            |
-| 主从  | < 50GB  | 1 主 2 从，Master 8C16G，Slave 4C8G | 读 10-20 万，写 5-8 万 |
-| 哨兵  | < 80GB  | 1 主 2 从 + 3 哨兵，配置同主从            | 读 10-20 万，写 5-8 万 |
-| 集群  | > 100GB | 3 主 3 从起，每 Master 8C16G         | 随节点数线性增长          |
--- -
+| 架构 | 适用数据量 | 推荐配置 | 预期 QPS(读/写) |
+|------|-----------|----------|----------------|
+| 单机 | < 20GB | 4C8G，Redis maxmemory=6GB | 5-10 万 |
+| 主从 | < 50GB | 1 主 2 从，Master 8C16G，Slave 4C8G | 读 10-20 万，写 5-8 万 |
+| 哨兵 | < 80GB | 1 主 2 从 + 3 哨兵，配置同主从 | 读 10-20 万，写 5-8 万 |
+| 集群 | > 100GB | 3 主 3 从起，每 Master 8C16G | 随节点数线性增长 |
+
 ## 七、生产运维指南
 
 ### 7.1 监控要点
 
-1. **内存使用率**：`INFO memory used_memory_human`，超过 `maxmemory` 的 80% 需扩容。
-2. **命中率**：`INFO stats keyspace_hits / (keyspace_hits + keyspace_misses)`。
-3. **复制延迟**：`INFO replication master_repl_offset` 与 `slave_repl_offset` 差值。
-4. **慢查询**：`SLOWLOG GET 10` 查看耗时命令。
-5. **连接数**：`INFO clients connected_clients`，接近 `maxclients` 需扩容。
-6. **持久化状态**：`INFO persistence rdb_last_bgsave_status` 和 `aof_last_rewrite_status`。
+1. 内存使用率：`INFO memory used_memory_human`，超过 `maxmemory` 的 80% 需扩容。
+2. 命中率：`INFO stats keyspace_hits / (keyspace_hits + keyspace_misses)`。
+3. 复制延迟：`INFO replication master_repl_offset` 与 `slave_repl_offset` 差值。
+4. 慢查询：`SLOWLOG GET 10` 查看耗时命令。
+5. 连接数：`INFO clients connected_clients`，接近 `maxclients` 需扩容。
+6. 持久化状态：`INFO persistence rdb_last_bgsave_status` 和 `aof_last_rewrite_status`。
 ### 7.2 备份策略
 ```
 # RDB 备份脚本示例
@@ -971,11 +984,12 @@ find $BACKUP_DIR -name "dump_*.rdb" -mtime +7 -delete
 - AOF 重写期间禁用 fsync：`no-appendfsync-on-rewrite yes`
 - 选择合适的淘汰策略(`allkeys-lru` 或 `volatile-lru`)
 - 限制客户端连接数 `maxclients`，避免资源耗尽
--- -
+
 ## 八、常见问题排查
 ### 8.1 启动失败：Can't chdir to ...
 
 **原因**：数据目录不存在或权限不足。  
+
 **解决**：创建目录并修改所有者 `chown redis:redis /var/lib/redis`。
 ### 8.2 主从连接失败：MASTERDOWN Link fails
 

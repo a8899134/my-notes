@@ -8,7 +8,9 @@
 |主从复制部署|一主一从或多从，实现读写分离和数据冗余|
 |哨兵高可用部署|主从 + 哨兵，实现自动故障转移|
 |集群分布式部署|数据分片 + 高可用，适用于大数据量场景|
+
 使用方法：根据实际部署场景，从本文档中提取对应的配置节，组合成完整的 redis.conf 配置文件。
+
 ### 1.2 配置优先级说明
 ```text
 命令行启动参数 > redis.conf 配置文件 > 内置默认值
@@ -389,7 +391,7 @@ latency-monitor-threshold 0
 # 如需启用，参考 K 键空间 E 键事件 g 通用 $ 字符串 l 列表 s 集合 h 哈希 z 有序集合
 notify-keyspace-events ""
 ```
--- -
+
 ## 三、哨兵配置文件模板
 ### 3.1 哨兵配置
 ```conf
@@ -463,7 +465,7 @@ SENTINEL master-reboot-down-after-period mymaster 0
 # sentinel client-reconfig-script mymaster /usr/local/bin/sentinel_reconfig.sh
 
 ```
--- -
+
 ## 四、集群配置文件模板
 ### 4.1 集群节点配置
 ```
@@ -517,7 +519,7 @@ save 3600 1
 save 300 100
 save 60 10000
 ```
--- -
+
 ## 五、各场景配置组合指南
 ### 5.1 场景一：单机独立部署
 适用场景：数据量 < 20GB，QPS < 1 万，不需要高可用。
@@ -551,14 +553,17 @@ save 60 10000
 |惰性删除配置|✅ 启用|✅ 启用|推荐|
 |性能优化配置|✅ 启用|✅ 启用|推荐|
 |监控与日志配置|✅ 启用|✅ 启用|推荐|
+
 主节点额外配置：
 - bind 需包含内网 IP，让从节点能访问
 - requirepass 必须设置
+
 从节点额外配置：
 - replicaof <主节点IP> <主节点端口> 必须配置
 - masterauth 必须与主节点 requirepass 一致
 ### 5.3 场景三：哨兵高可用部署
 **适用场景**：数据量 < 20 GB，QPS 1-5 万，需要自动故障转移。
+
 **配置组合**：
 
 | 配置节      | 主节点    | 从节点                | 哨兵节点                   |
@@ -599,7 +604,7 @@ save 60 10000
 - 建议 3 主 + 3 从(6 个节点)
 - 每个节点使用不同端口(如 7001-7006)
 - 每个节点有独立的数据目录
--- -
+
 ## 六、配置参数速查表
 ### 6.1 必配参数清单
 |配置项|建议值|说明|是否必须|
@@ -642,7 +647,7 @@ save 60 10000
 |`cluster-node-timeout`|5000-15000|节点超时时间|
 |`cluster-replica-validity-factor`|10|从节点有效性因子|
 |`cluster-migration-barrier`|1|副本迁移屏障|
--- -
+
 ## 七、配置验证与启动
 ### 7.1 验证配置文件语法
 ```bash
@@ -691,43 +696,43 @@ redis-cli -a 密码 --cluster create \
     192.168.1.12:7006 \
     --cluster-replicas 1
 ```
--- -
+
 ## 八、配置部署检查清单
 ### 8.1 通用检查项
-□ 配置文件路径：/etc/redis/redis.conf
-□ 数据目录：/var/lib/redis/ 存在且属主为 redis:redis
-□ 日志目录：/var/log/redis/ 存在且属主为 redis:redis
-□ requirepass 已设置且为强密码
-□ maxmemory 已设置(物理内存 60%-75%)
-□ maxmemory-policy 已设置
-□ daemonize no(配合 systemd)
-□ supervised systemd(配合 systemd)
-□ systemd 服务文件已创建：/etc/systemd/system/redis.service
-□ rename-command 已禁用危险命令
-□ 防火墙已放行对应端口
+- □ 配置文件路径：/etc/redis/redis.conf
+- □ 数据目录：/var/lib/redis/ 存在且属主为 redis:redis
+- □ 日志目录：/var/log/redis/ 存在且属主为 redis:redis
+- □ requirepass 已设置且为强密码
+- □ maxmemory 已设置(物理内存 60%-75%)
+- □ maxmemory-policy 已设置
+- □ daemonize no(配合 systemd)
+- □ supervised systemd(配合 systemd)
+- □ systemd 服务文件已创建：/etc/systemd/system/redis.service
+- □ rename-command 已禁用危险命令
+- □ 防火墙已放行对应端口
 ### 8.2 主从复制检查项
-□ 主节点 bind 包含内网 IP
-□ 从节点 replicaof 指向正确的主节点
-□ 从节点 masterauth 密码与主节点 requirepass 一致
-□ 从节点 replica-read-only yes
-□ INFO replication 确认主从状态正常
+- □ 主节点 bind 包含内网 IP
+- □ 从节点 replicaof 指向正确的主节点
+- □ 从节点 masterauth 密码与主节点 requirepass 一致
+- □ 从节点 replica-read-only yes
+- □ INFO replication 确认主从状态正常
 ### 8.3 哨兵检查项
-□ 哨兵配置文件：/etc/redis-sentinel.conf
-□ sentinel monitor 指向正确的主节点
-□ sentinel auth-pass 密码与 Redis 密码一致
-□ quorum 设置为哨兵总数的一半以上
-□ protected-mode no
-□ 至少 3 个哨兵节点
-□ 哨兵服务已启动并设置开机自启
+- □ 哨兵配置文件：/etc/redis-sentinel.conf
+- □ sentinel monitor 指向正确的主节点
+- □ sentinel auth-pass 密码与 Redis 密码一致
+- □ quorum 设置为哨兵总数的一半以上
+- □ protected-mode no
+- □ 至少 3 个哨兵节点
+- □ 哨兵服务已启动并设置开机自启
 ### 8.4 集群检查项
-□ 每个节点 cluster-enabled yes
-□ 每个节点有独立的数据目录和配置文件
-□ 每个节点端口不同，总线端口已放行
-□ 所有节点密码统一
-□ CLUSTER INFO 显示 cluster_state:ok
-□ 所有 16384 个哈希槽已分配
-□ 集群数据读写测试通过
--- -
+- □ 每个节点 cluster-enabled yes
+- □ 每个节点有独立的数据目录和配置文件
+- □ 每个节点端口不同，总线端口已放行
+- □ 所有节点密码统一
+- □ CLUSTER INFO 显示 cluster_state:ok
+- □ 所有 16384 个哈希槽已分配
+- □ 集群数据读写测试通过
+
 ## 九、总结
 ### 9.1 核心要点
 1. 安全配置是基础：密码、重命名危险命令、绑定内网 IP 是生产环境三大安全基石

@@ -9,6 +9,7 @@ Redis 是内存数据库，正常情况下响应时间应在微秒级别(< 1 ms)
 | 连接数爆满           | 新连接无法建立，服务不可用          |
 | 内存使用率持续增长       | 可能导致 OOM 或大量淘汰         |
 | 主从复制延迟增大        | 从节点数据落后，故障切换可能丢数据      |
+
 排查的核心思路：找到性能瓶颈的根源，而不是盲目重启或扩容。
 ### 1.2 性能排查的四步法
 ```text
@@ -59,6 +60,7 @@ redis-cli -a 密码 INFO stats
 | `evicted_keys` |因内存淘汰的 Key 数量|> 0 说明内存不足|
 | `keyspace_hits` |缓存命中次数|计算命中率|
 | `keyspace_misses` |缓存未命中次数|命中率低需排查|
+
 QPS 计算：
 ```bash
 # 两次采样计算 QPS
@@ -85,12 +87,14 @@ cmdstat_keys:calls=100,usec=5000000,usec_per_call=50000.00
 | `calls` |命令被调用的次数|
 | `usec` |该命令总耗时(微秒)|
 | `usec_per_call` |单次平均耗时(微秒)|
+
 排查重点：
 - usec_per_call 过高的命令(如 > 1000 微秒)
 - calls 次数异常多的命令
 - 特别关注 KEYS、SMEMBERS、HGETALL 等 O(N) 命令
 ### 2.4 SLOWLOG — 慢查询日志
 慢查询日志是排查性能问题最直接的入口。
+
 查看慢查询配置：
 ```bash
 redis-cli -a 密码 CONFIG GET slowlog-log-slower-than
@@ -127,12 +131,14 @@ redis-cli -a 密码 CLIENT LIST
 |连接数过多|统计输出行数，检查是否超过 maxclients|
 |连接泄漏|检查 `age` 和 `idle` 时间，长时间空闲的连接|
 |阻塞命令|检查 `cmd` 字段，是否存在 `BLPOP`、`BRPOP` 等阻塞命令|
+
 命令说明：CLIENT LIST 会输出所有客户端连接的详细信息，每行代表一个连接。生产环境如果连接数较多(如数千个)，直接执行此命令会输出大量内容，可能对 Redis 造成轻微性能影响。建议在排查时使用 grep 或 wc -l 进行过滤统计。
 ### 2.6 MONITOR — 实时命令监控
 ```bash
 redis-cli -a 密码 MONITOR
 ```
 用途：实时查看 Redis 正在执行的所有命令。
+
 **⚠️ 警告**：
 - MONITOR 会输出所有命令，高并发环境下会产生大量输出
 - MONITOR 本身会消耗 Redis 性能，生产环境严禁长时间运行
@@ -142,7 +148,7 @@ redis-cli -a 密码 MONITOR
 # 只查看 10 条后自动退出
 timeout 5 redis-cli -a 密码 MONITOR
 ```
--- -
+
 ## 三、内存性能排查
 ### 3.1 内存使用率过高
 排查命令：
@@ -157,6 +163,7 @@ redis-cli -a 密码 INFO memory
 | `used_memory_rss` |接近 used_memory|远大于 used_memory|操作系统实际分配内存|
 | `mem_fragmentation_ratio` |1.0 - 1.5|> 1.5 关注，> 2.0 告警|内存碎片率|
 | `maxmemory` |已设置|未设置或过低|内存上限|
+
 内存使用率过高的原因：
 
 |原因|排查方法|解决方案|
@@ -168,11 +175,14 @@ redis-cli -a 密码 INFO memory
 |客户端输出缓冲区过大| `CLIENT LIST` 查看|检查慢客户端，调整 buffer 限制|
 ### 3.2 内存碎片率过高
 现象：mem_fragmentation_ratio > 1.5
+
 解释：
+
 - mem_fragmentation_ratio = used_memory_rss / used_memory
 - 正常值：1.0 - 1.5
 - 1.5 说明内存碎片较多，内存利用率下降
 - 2.0 说明碎片严重，需要处理
+
 解决方案：
 ```bash
 # 方法一：重启 Redis(最简单，但有停机时间)
@@ -186,6 +196,7 @@ redis-cli -a 密码 INFO memory | grep active_defrag
 ```
 ### 3.3 查找大 Key
 大 Key 是 Redis 性能问题的常见根源。
+
 使用内置命令扫描：
 ```bash
 # 扫描所有 Key，找出最大的 Key(生产环境慎用)
@@ -214,7 +225,7 @@ done
 |拆分|Hash/Set/ZSet 过大|按业务维度拆分为多个小 Key|
 |压缩|String 值过大|使用压缩算法(如 gzip)后再存储|
 |删除|已不再使用的数据|使用 UNLINK 异步删除，避免阻塞|
--- -
+
 ## 四、CPU 性能排查
 ### 4.1 CPU 使用率异常
 排查命令：
@@ -233,6 +244,7 @@ redis-cli -a 密码 INFO cpu
 | `used_cpu_user` |用户态 CPU 使用|命令执行的主要消耗|
 | `used_cpu_sys_children` |子进程系统态 CPU|RDB/AOF 重写消耗|
 | `used_cpu_user_children` |子进程用户态 CPU|RDB/AOF 重写消耗|
+
 CPU 使用率过高的原因：
 
 |原因|排查方法|解决方案|
@@ -254,7 +266,7 @@ redis-cli -a 密码 INFO cpu
 ```bash
 redis-cli -a 密码 INFO commandstats
 ```
--- -
+
 ## 五、持久化性能排查
 ### 5.1 RDB 保存耗时过长
 排查命令：
@@ -268,6 +280,7 @@ redis-cli -a 密码 INFO persistence
 | `rdb_last_bgsave_time_sec` |最后一次 RDB 耗时(秒)|> 10 秒需关注|
 | `rdb_last_bgsave_status` |最后一次 RDB 状态|非 `ok` 需告警|
 | `rdb_current_bgsave_time_sec` |当前正在进行的 RDB 耗时|持续增长需关注|
+
 RDB 耗时过长的原因：
 
 | 原因        | 解决方案                |
@@ -275,6 +288,7 @@ RDB 耗时过长的原因：
 | 数据集过大     | 增加 save 间隔，降低保存频率   |
 | 磁盘 I/O 慢  | 使用 SSD，分离 RDB 到独立磁盘 |
 | fork 耗时过长 | 预留内存，避免内存不足触发 swap  |
+
 ### 5.2 AOF 重写耗时过长
 排查命令：
 ```bash
@@ -288,6 +302,7 @@ redis-cli -a 密码 INFO persistence
 |`aof_rewrite_scheduled`|AOF 重写是否被调度|
 |`aof_last_rewrite_time_sec`|最后一次 AOF 重写耗时|
 |`aof_last_rewrite_status`|最后一次 AOF 重写状态|
+
 AOF 重写耗时过长的解决方案：
 
 |方案|说明|
@@ -295,7 +310,7 @@ AOF 重写耗时过长的解决方案：
 |调整重写触发条件|增大 `auto-aof-rewrite-percentage` 和 `auto-aof-rewrite-min-size` |
 |低峰期执行|在业务低峰期手动触发 `BGREWRITEAOF` |
 |优化磁盘 I/O|使用 SSD，分离 AOF 到独立磁盘|
--- -
+
 ## 六、主从复制性能排查
 ### 6.1 主从延迟过大
 排查命令：
@@ -310,6 +325,7 @@ redis-cli -a 密码 INFO replication
 | `master_last_io_seconds_ago` |最后一次通信间隔(秒)|> 5 秒需关注|
 | `slave_repl_offset` |从节点复制偏移量|与主节点 offset 对比|
 | `master_sync_in_progress` |是否正在全量同步|持续为 1 说明同步缓慢|
+
 主从延迟的原因：
 
 |原因|排查方法|解决方案|
@@ -332,7 +348,7 @@ sudo tail -100 /var/log/redis/redis.log | grep -i "full sync"
 |增大 repl-backlog-size|建议 64 MB-256 MB，根据写流量调整|
 |优化网络稳定性|避免网络抖动导致频繁断连|
 |监控复制延迟|及时发现和处理延迟问题|
--- -
+
 ## 七、网络与连接性能排查
 ### 7.1 连接数异常
 排查命令：
@@ -379,7 +395,7 @@ ulimit -n 65535
 echo "redis soft nofile 65535" >> /etc/security/limits.conf
 echo "redis hard nofile 65535" >> /etc/security/limits.conf
 ```
--- -
+
 ## 八、常见性能问题场景
 ### 8.1 场景一：请求延迟突然增大
 排查步骤：
@@ -429,7 +445,7 @@ redis-cli -a 密码 INFO persistence | grep -E "rdb_bgsave_in_progress|aof_rewri
 4. 查看内存碎片率 → INFO memory
 5. 查看是否有客户端输出缓冲区过大 → CLIENT LIST
 ```
--- -
+
 ## 九、性能优化建议
 ### 9.1 慢查询优化
 |建议|说明|
@@ -546,7 +562,7 @@ io-threads 4
 io-threads-do-reads yes
 ```
 
--- -
+
 ## 十、总结
 ### 10.1 核心要点
 1. 性能排查遵循四步法：现象确认 → 数据采集 → 分析定位 → 优化解决
